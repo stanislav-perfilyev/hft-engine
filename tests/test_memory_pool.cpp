@@ -28,8 +28,8 @@ TEST(FixedPool, AcquireRelease) {
 
 TEST(FixedPool, ExhaustionReturnsNullptr) {
     FixedPool<Foo, 2> pool;
-    pool.construct(1, 0.0);
-    pool.construct(2, 0.0);
+    (void)pool.construct(1, 0.0);
+    (void)pool.construct(2, 0.0);
     EXPECT_TRUE(pool.full());
 
     Foo* extra = pool.construct(3, 0.0);
@@ -70,7 +70,7 @@ TEST(PoolResource, AlignmentRespected) {
 
 TEST(PoolResource, ExhaustionThrows) {
     PoolResource res(16);
-    EXPECT_THROW(res.allocate(256, 1), std::bad_alloc);
+    EXPECT_THROW((void)res.allocate(256, 1), std::bad_alloc);
 }
 
 TEST(PoolResource, ZeroCapacityThrows) {
@@ -79,7 +79,7 @@ TEST(PoolResource, ZeroCapacityThrows) {
 
 TEST(PoolResource, Reset) {
     PoolResource res(256);
-    res.allocate(128, 1);
+    (void)res.allocate(128, 1);
     EXPECT_GT(res.bytes_used(), 0u);
     res.reset();
     EXPECT_EQ(res.bytes_used(), 0u);

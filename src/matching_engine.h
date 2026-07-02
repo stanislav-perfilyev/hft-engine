@@ -46,7 +46,7 @@ public:
 
     // Submit a new order. Returns the allocated Order* (caller must call release()
     // when done). Returns nullptr if pool exhausted or qty == 0.
-    Order* submit(Side side, OrderType type, Price price, Qty qty) {
+    [[nodiscard]] Order* submit(Side side, OrderType type, Price price, Qty qty) {
         if (qty == 0) return nullptr;
 
         Order* order = m_pool.construct();
@@ -88,7 +88,7 @@ public:
 
     // Cancel resting (book) order by id. Returns true if found and cancelled.
     // Releases the order internally — do NOT call release() after cancel().
-    bool cancel(OrderId id) {
+    bool cancel(OrderId id) noexcept {
         Order* order = m_book.find(id);
         if (!order) return false;
         const bool ok = m_book.cancel_order(id);

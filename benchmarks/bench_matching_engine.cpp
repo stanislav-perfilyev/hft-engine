@@ -12,7 +12,7 @@ static void BM_LimitOrderRest(benchmark::State& state) {
         const int n = static_cast<int>(state.range(0));
         for (int i = 0; i < n; ++i) {
             // Alternate prices so they don't cross
-            me.submit(Side::BID, OrderType::LIMIT, 10000 - i, 100);
+            (void)me.submit(Side::BID, OrderType::LIMIT, 10000 - i, 100);
         }
         benchmark::DoNotOptimize(me);
         benchmark::ClobberMemory();
@@ -31,12 +31,12 @@ static void BM_MatchAndFill(benchmark::State& state) {
         // Setup phase (excluded from timing by benchmark framework)
         state.PauseTiming();
         for (int i = 0; i < n; ++i)
-            me.submit(Side::ASK, OrderType::LIMIT, 10000, 1);
+            (void)me.submit(Side::ASK, OrderType::LIMIT, 10000, 1);
         state.ResumeTiming();
 
         // Hot path: match all N asks
         for (int i = 0; i < n; ++i)
-            me.submit(Side::BID, OrderType::LIMIT, 10000, 1);
+            (void)me.submit(Side::BID, OrderType::LIMIT, 10000, 1);
 
         benchmark::DoNotOptimize(me);
         benchmark::ClobberMemory();
@@ -50,7 +50,7 @@ BENCHMARK(BM_MatchAndFill)->Range(64, 4096)->Unit(benchmark::kNanosecond);
 static void BM_SingleMatchLatency(benchmark::State& state) {
     for (auto _ : state) {
         MatchingEngine<8> me;
-        me.submit(Side::ASK, OrderType::LIMIT, 10000, 100);
+        (void)me.submit(Side::ASK, OrderType::LIMIT, 10000, 100);
         auto* bid = me.submit(Side::BID, OrderType::LIMIT, 10000, 100);
         benchmark::DoNotOptimize(bid);
         benchmark::ClobberMemory();
@@ -68,11 +68,11 @@ static void BM_MarketOrder(benchmark::State& state) {
 
         state.PauseTiming();
         for (int i = 0; i < levels; ++i)
-            me.submit(Side::ASK, OrderType::LIMIT, 10000 + i, 10);
+            (void)me.submit(Side::ASK, OrderType::LIMIT, 10000 + i, 10);
         state.ResumeTiming();
 
         // Market buy sweeps all levels
-        me.submit(Side::BID, OrderType::MARKET, 0, 10 * levels);
+        (void)me.submit(Side::BID, OrderType::MARKET, 0, 10 * levels);
         benchmark::DoNotOptimize(me);
         benchmark::ClobberMemory();
     }
