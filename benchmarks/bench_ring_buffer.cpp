@@ -79,8 +79,8 @@ static void BM_RingBuffer_SingleThread(benchmark::State& state) {
     RingBuffer<int, 1024> rb;
     int v = 0;
     for (auto _ : state) {
-        rb.push(42);
-        rb.pop(v);
+        (void)rb.push(42);
+        (void)rb.pop(v);
         benchmark::DoNotOptimize(v);
     }
 }
