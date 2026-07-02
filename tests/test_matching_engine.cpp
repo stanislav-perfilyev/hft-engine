@@ -60,20 +60,25 @@ TEST_F(METest, PricePriority) {
 }
 
 TEST_F(METest, TimePriority) {
-    // Two asks at same price — earlier one fills first
+    // Two asks at same price — earlier one fills first (FIFO)
     auto* ask1 = me.submit(Side::ASK, OrderType::LIMIT, 10000, 30);
     auto* ask2 = me.submit(Side::ASK, OrderType::LIMIT, 10000, 30);
 
-    me.submit(Side::BID, OrderType::LIMIT, 10000, 30);  // fills exactly one
+    // CRITICAL: save IDs before the bid triggers a fill — the engine auto-releases
+    // the filled maker (ask1) via m_pool.destroy(), which overwrites ask1->id with
+    // the free-list next pointer.  Dereferencing ask1 after fill is UB.
+    const OrderId ask1_id = ask1->id;
+    const OrderId ask2_id = ask2->id;
+
+    auto* bid = me.submit(Side::BID, OrderType::LIMIT, 10000, 30);  // fills ask1
 
     ASSERT_EQ(trades.size(), 1u);
-    EXPECT_EQ(trades[0].maker_id, ask1->id);  // FIFO: ask1 before ask2
-    EXPECT_EQ(ask1->status, OrderStatus::FILLED);
-    EXPECT_EQ(ask2->status, OrderStatus::NEW);
-    me.cancel(ask2->id);  // ask2 still resting — clean up
+    EXPECT_EQ(trades[0].maker_id, ask1_id);  // FIFO: ask1 before ask2
+    // ask1 was auto-released by the engine — cannot dereference ask1 here
+    EXPECT_EQ(ask2->status, OrderStatus::NEW);  // ask2 still resting
 
-    // bid filled ask1 exactly, release bid
-    // (bid must be released if it was fully filled or rejected)
+    me.cancel(ask2_id);   // clean up ask2 from book
+    if (bid) me.release(bid);  // bid (taker) was filled — caller must release
 }
 
 TEST_F(METest, MarketOrderFills) {

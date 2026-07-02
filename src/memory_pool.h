@@ -96,33 +96,53 @@ private:
 
 // ─── PoolResource ─────────────────────────────────────────────────────────────
 // std::pmr::memory_resource backed by a contiguous buffer.
-// Useful with std::pmr::map, std::pmr::vector, etc.
-// Strategy: monotonic bump allocator with alignment support.
-// No deallocation (orders live until session end or cancel).
+// Strategy: monotonic bump allocator.
+//
+// Alignment guarantee: the backing buffer is aligned to kMaxAlign bytes, so any
+// requested alignment <= kMaxAlign is satisfied correctly.  Alignments larger
+// than kMaxAlign are unsupported and will throw std::bad_alloc.
 class PoolResource : public std::pmr::memory_resource {
+    // Maximum alignment we guarantee (one cache line — covers all HFT types).
+    static constexpr std::size_t kMaxAlign = 64;
 public:
     explicit PoolResource(std::size_t capacity_bytes)
-        : m_buffer(capacity_bytes), m_offset(0)
+        : m_capacity(capacity_bytes)
+        , m_offset(0)
     {
         if (capacity_bytes == 0)
             throw std::invalid_argument("PoolResource: capacity must be > 0");
+
+        // Over-allocate by (kMaxAlign - 1) bytes so we can always find a
+        // kMaxAlign-aligned start inside the raw buffer regardless of where
+        // the heap places m_raw.data().
+        m_raw.resize(capacity_bytes + kMaxAlign - 1);
+
+        const uintptr_t raw_addr     = reinterpret_cast<uintptr_t>(m_raw.data());
+        const uintptr_t aligned_addr = (raw_addr + kMaxAlign - 1)
+                                       & ~(uintptr_t{kMaxAlign - 1});
+        m_start = reinterpret_cast<std::byte*>(aligned_addr);
     }
 
     [[nodiscard]] std::size_t bytes_used()      const noexcept { return m_offset; }
     [[nodiscard]] std::size_t bytes_remaining() const noexcept {
-        return m_buffer.size() - m_offset;
+        return m_capacity - m_offset;
     }
 
     void reset() noexcept { m_offset = 0; }
 
 private:
     void* do_allocate(std::size_t bytes, std::size_t alignment) override {
-        // Align up m_offset
+        if (alignment > kMaxAlign)
+            throw std::bad_alloc{};  // unsupported super-alignment
+
+        // Align up m_offset within the kMaxAlign-aligned buffer.
+        // Because m_start is already kMaxAlign-aligned, any alignment <= kMaxAlign
+        // is satisfied by the standard mask calculation below.
         const std::size_t aligned = (m_offset + alignment - 1) & ~(alignment - 1);
-        if (aligned + bytes > m_buffer.size())
+        if (aligned + bytes > m_capacity)
             throw std::bad_alloc{};
         m_offset = aligned + bytes;
-        return static_cast<void*>(m_buffer.data() + aligned);
+        return static_cast<void*>(m_start + aligned);
     }
 
     void do_deallocate(void*, std::size_t, std::size_t) noexcept override {
@@ -135,6 +155,8 @@ private:
         return this == &other;
     }
 
-    std::vector<std::byte> m_buffer;
-    std::size_t            m_offset;
+    std::vector<std::byte> m_raw;       // over-allocated raw storage
+    std::byte*  m_start{nullptr};       // kMaxAlign-aligned start within m_raw
+    std::size_t m_capacity;             // usable bytes
+    std::size_t m_offset;
 };

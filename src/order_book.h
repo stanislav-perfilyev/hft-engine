@@ -8,6 +8,10 @@
 //  * Level: ordered list of orders at a price (FIFO priority)
 //  * O(log P) add/cancel where P = distinct price levels (small in practice)
 //  * PoolResource supplied externally — zero heap alloc during hot path
+//
+// Bug fix (2026-07-02): BidMap/AskMap differ in comparator type — ternary
+// operator cannot unify them. Replaced ternary with private template helpers
+// dispatched via if/else on order->side.
 // ─────────────────────────────────────────────────────────────────────────────
 #include "order_types.h"
 #include "memory_pool.h"
@@ -32,6 +36,9 @@ struct Level {
 // ─── OrderBook ────────────────────────────────────────────────────────────────
 class OrderBook {
 public:
+    using BidMap = std::pmr::map<Price, Level, std::greater<Price>>;
+    using AskMap = std::pmr::map<Price, Level, std::less<Price>>;
+
     // mr: upstream allocator (PoolResource recommended for HFT)
     explicit OrderBook(std::pmr::memory_resource* mr = std::pmr::get_default_resource())
         : m_mr(mr)
@@ -49,19 +56,13 @@ public:
         if (m_order_index.count(order->id))
             throw std::invalid_argument("add_order: duplicate order id");
 
-        auto& side_map = (order->side == Side::BID) ? m_bids : m_asks;
+        // BidMap and AskMap have different comparator types — cannot unify via
+        // ternary. Dispatch explicitly to the appropriate typed map.
+        if (order->side == Side::BID)
+            add_to_map(m_bids, order);
+        else
+            add_to_map(m_asks, order);
 
-        auto it = side_map.find(order->price);
-        if (it == side_map.end()) {
-            auto [ins, ok] = side_map.emplace(
-                std::piecewise_construct,
-                std::forward_as_tuple(order->price),
-                std::forward_as_tuple(order->price, m_mr)
-            );
-            it = ins;
-        }
-        it->second.total_qty += order->qty;
-        it->second.orders.push_back(order);
         m_order_index[order->id] = order;
         return order;
     }
@@ -74,19 +75,11 @@ public:
         Order* order = idx_it->second;
         order->status = OrderStatus::CANCELLED;
 
-        auto& side_map = (order->side == Side::BID) ? m_bids : m_asks;
-        auto level_it  = side_map.find(order->price);
-        if (level_it != side_map.end()) {
-            auto& v = level_it->second.orders;
-            for (auto oit = v.begin(); oit != v.end(); ++oit) {
-                if ((*oit)->id == id) {
-                    level_it->second.total_qty -= order->remaining();
-                    v.erase(oit);
-                    break;
-                }
-            }
-            if (v.empty()) side_map.erase(level_it);
-        }
+        if (order->side == Side::BID)
+            cancel_from_map(m_bids, order);
+        else
+            cancel_from_map(m_asks, order);
+
         m_order_index.erase(idx_it);
         return true;
     }
@@ -145,9 +138,6 @@ public:
     }
 
     // Internal access for MatchingEngine
-    using BidMap = std::pmr::map<Price, Level, std::greater<Price>>;
-    using AskMap = std::pmr::map<Price, Level, std::less<Price>>;
-
     BidMap& bids() noexcept { return m_bids; }
     AskMap& asks() noexcept { return m_asks; }
     const BidMap& bids() const noexcept { return m_bids; }
@@ -160,4 +150,36 @@ private:
     BidMap m_bids;
     AskMap m_asks;
     std::pmr::unordered_map<OrderId, Order*> m_order_index;
+
+    // Template helpers avoid duplicating add/cancel logic for two distinct
+    // map types (BidMap uses std::greater, AskMap uses std::less).
+    template<typename Map>
+    void add_to_map(Map& side_map, Order* order) {
+        auto it = side_map.find(order->price);
+        if (it == side_map.end()) {
+            auto [ins, ok] = side_map.emplace(
+                std::piecewise_construct,
+                std::forward_as_tuple(order->price),
+                std::forward_as_tuple(order->price, m_mr)
+            );
+            it = ins;
+        }
+        it->second.total_qty += order->remaining();  // use remaining (partial fills may have qty < order->qty)
+        it->second.orders.push_back(order);
+    }
+
+    template<typename Map>
+    void cancel_from_map(Map& side_map, Order* order) noexcept {
+        auto level_it = side_map.find(order->price);
+        if (level_it == side_map.end()) return;
+        auto& v = level_it->second.orders;
+        for (auto oit = v.begin(); oit != v.end(); ++oit) {
+            if ((*oit)->id == order->id) {
+                level_it->second.total_qty -= order->remaining();
+                v.erase(oit);
+                break;
+            }
+        }
+        if (v.empty()) side_map.erase(level_it);
+    }
 };
