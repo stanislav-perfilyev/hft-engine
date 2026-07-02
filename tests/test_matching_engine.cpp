@@ -22,12 +22,14 @@ TEST_F(METest, SubmitLimitRests) {
 
 TEST_F(METest, ExactMatchFillsBoth) {
     me.submit(Side::ASK, OrderType::LIMIT, 10000, 100);
-    me.submit(Side::BID, OrderType::LIMIT, 10000, 100);
+    auto* bid = me.submit(Side::BID, OrderType::LIMIT, 10000, 100);
 
     ASSERT_EQ(trades.size(), 1u);
     EXPECT_EQ(trades[0].qty, 100u);
     EXPECT_EQ(trades[0].price, 10000);
+    EXPECT_EQ(bid->status, OrderStatus::FILLED);
     EXPECT_TRUE(me.book().empty());
+    me.release(bid);  // taker filled — caller owns, must release
 }
 
 TEST_F(METest, PartialFill) {
@@ -45,13 +47,16 @@ TEST_F(METest, PartialFill) {
 }
 
 TEST_F(METest, PricePriority) {
-    // Two asks at different prices — lower price matches first
+    // Two asks at different prices -- lower price matches first
     me.submit(Side::ASK, OrderType::LIMIT, 10010, 50);
     me.submit(Side::ASK, OrderType::LIMIT, 10000, 50);
-    me.submit(Side::BID, OrderType::LIMIT, 10020, 50);  // crosses both
+    auto* bid = me.submit(Side::BID, OrderType::LIMIT, 10020, 50);  // crosses best ask
 
     ASSERT_GE(trades.size(), 1u);
     EXPECT_EQ(trades[0].price, 10000);  // best ask filled first
+    // bid filled exactly 50 (only best ask at 10000 matches qty=50) -- still on book or filled
+    if (bid && bid->status == OrderStatus::FILLED) me.release(bid);
+    else if (bid) me.cancel(bid->id);
 }
 
 TEST_F(METest, TimePriority) {
@@ -65,6 +70,10 @@ TEST_F(METest, TimePriority) {
     EXPECT_EQ(trades[0].maker_id, ask1->id);  // FIFO: ask1 before ask2
     EXPECT_EQ(ask1->status, OrderStatus::FILLED);
     EXPECT_EQ(ask2->status, OrderStatus::NEW);
+    me.cancel(ask2->id);  // ask2 still resting — clean up
+
+    // bid filled ask1 exactly, release bid
+    // (bid must be released if it was fully filled or rejected)
 }
 
 TEST_F(METest, MarketOrderFills) {
@@ -74,14 +83,16 @@ TEST_F(METest, MarketOrderFills) {
     ASSERT_NE(mkt, nullptr);
     EXPECT_EQ(mkt->status, OrderStatus::FILLED);
     EXPECT_EQ(trades.size(), 1u);
+    me.release(mkt);  // filled market order — caller must release
 }
 
 TEST_F(METest, MarketOrderRejectedIfEmpty) {
-    // No asks → market buy should be rejected
+    // No asks -> market buy should be rejected
     auto* mkt = me.submit(Side::BID, OrderType::MARKET, 0, 100);
     ASSERT_NE(mkt, nullptr);
     EXPECT_EQ(mkt->status, OrderStatus::REJECTED);
     EXPECT_TRUE(trades.empty());
+    me.release(mkt);  // rejected — caller must release
 }
 
 TEST_F(METest, CancelOrder) {
@@ -109,4 +120,20 @@ TEST_F(METest, MultipleFillers) {
 
     EXPECT_EQ(trades.size(), 3u);
     EXPECT_TRUE(me.book().empty());
+    // bid (taker) is filled and returned by the last submit call above
+    // In this test we discard the pointer intentionally to verify book state only
+}
+
+TEST_F(METest, CallbackExceptionIsCaught) {
+    me.on_trade([](const Trade&) { throw std::runtime_error("cb error"); });
+    me.submit(Side::ASK, OrderType::LIMIT, 10000, 50);
+    auto* bid = me.submit(Side::BID, OrderType::LIMIT, 10000, 50);
+    // Engine must NOT propagate the callback exception
+    EXPECT_FALSE(me.last_cb_error().empty());
+    EXPECT_NE(me.last_cb_error().find("cb error"), std::string::npos);
+    me.release(bid);
+}
+
+TEST_F(METest, ReleaseNullptrIsSafe) {
+    me.release(nullptr);  // must not crash
 }

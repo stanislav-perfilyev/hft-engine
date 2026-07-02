@@ -94,3 +94,12 @@ TEST_F(OrderBookTest, L2Snapshot) {
     EXPECT_EQ(snap.bids[1].price, 9900);
     EXPECT_EQ(snap.asks[0].price, 10100);
 }
+
+TEST_F(OrderBookTest, InvalidOrderIdThrows) {
+    auto* o = make_order(kInvalidOrderId, Side::BID, 10000, 100);
+    EXPECT_THROW(book.add_order(o), std::invalid_argument);
+}
+
+TEST_F(OrderBookTest, NullOrderThrows) {
+    EXPECT_THROW(book.add_order(nullptr), std::invalid_argument);
+}

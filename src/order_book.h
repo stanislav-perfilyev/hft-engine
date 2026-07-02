@@ -44,6 +44,8 @@ public:
     Order* add_order(Order* order) {
         if (!order)
             throw std::invalid_argument("add_order: null order");
+        if (order->id == kInvalidOrderId)
+            throw std::invalid_argument("add_order: id=0 is reserved (kInvalidOrderId)");
         if (m_order_index.count(order->id))
             throw std::invalid_argument("add_order: duplicate order id");
 
