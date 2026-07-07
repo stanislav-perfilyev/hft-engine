@@ -88,7 +88,7 @@ public:
 
     // Cancel resting (book) order by id. Returns true if found and cancelled.
     // Releases the order internally — do NOT call release() after cancel().
-    bool cancel(OrderId id) noexcept {
+    [[nodiscard]] bool cancel(OrderId id) noexcept {
         Order* order = m_book.find(id);
         if (!order) return false;
         const bool ok = m_book.cancel_order(id);

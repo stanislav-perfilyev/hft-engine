@@ -68,7 +68,7 @@ public:
     }
 
     // Returns true if cancelled, false if not found
-    bool cancel_order(OrderId id) noexcept {
+    [[nodiscard]] bool cancel_order(OrderId id) noexcept {
         auto idx_it = m_order_index.find(id);
         if (idx_it == m_order_index.end()) return false;
 
