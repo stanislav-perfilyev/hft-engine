@@ -87,7 +87,7 @@ public:
         return head - tail;
     }
 
-    static constexpr std::size_t capacity() noexcept { return Capacity; }
+    [[nodiscard]] static constexpr std::size_t capacity() noexcept { return Capacity; }
 
 private:
     template<typename U>

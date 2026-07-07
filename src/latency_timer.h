@@ -127,7 +127,7 @@ private:
     double        m_min_ns{std::numeric_limits<double>::max()};
     double        m_max_ns{0.0};
 
-    static std::string fmt(double v) {
+    [[nodiscard]] static std::string fmt(double v) {
         // Format to 1 decimal place without printf/format dependencies
         const long long i = static_cast<long long>(v);
         const int frac = static_cast<int>((v - static_cast<double>(i)) * 10.0);
