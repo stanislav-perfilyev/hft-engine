@@ -37,8 +37,10 @@ add_executable(hft_tests
     tests/test_matching_engine.cpp
     tests/test_latency_timer.cpp
     tests/test_memory_pool.cpp
+    tests/test_mt_engine.cpp
 )
-target_link_libraries(hft_tests PRIVATE hft_headers GTest::gtest_main)
+target_link_libraries(hft_tests PRIVATE hft_headers GTest::gtest_main
+    $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:pthread>)
 include(GoogleTest)
 gtest_discover_tests(hft_tests)
 
