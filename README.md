@@ -111,22 +111,23 @@ GTest and Google Benchmark are fetched automatically via `FetchContent`.
 
 ---
 
-## CI Matrix
+## Usage
 
-| Platform | Compiler |
-|----------|----------|
-| Ubuntu 22.04 | GCC 12 |
-| Ubuntu 22.04 | Clang 15 |
-| Windows 2022 | MSVC 19 (ilammy/msvc-dev-cmd) |
+```cpp
+#include "engine_runner.h"
 
----
+// Instantiate a 3-thread pipeline with 64k SPSC queue
+EngineRunner<65536> runner;
 
-## Concepts Demonstrated
+// Optional: receive trade execution reports
+runner.on_trade([](const Trade& t) {
+    std::printf("match: maker=%llu taker=%llu qty=%u price=%lld\n",
+                t.maker_id, t.taker_id, t.qty, t.price);
+});
 
-- Lock-free SPSC queue with `memory_order_acquire/release`
-- `std::pmr` polymorphic allocators for zero-heap hot paths
-- RDTSC nanosecond timing and calibration
-- Price-time FIFO matching (L2/L3 order book)
-- `alignas(64)` cache-line pinning of hot structs
-- `FixedPool<T,N>` intrusive free-list allocator
-- `std::jthread` + `std::stop_token` in benchmarks
+runner.start();
+
+// Submit orders from the producer thread (returns false on back-pressure)
+bool ok = runner.submit(Side::BID, OrderType::LIMIT, /*price=*/10050, /*qty=*/100);
+
+// Read lock-free stats from any thr

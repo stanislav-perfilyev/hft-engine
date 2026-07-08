@@ -111,8 +111,8 @@ TEST(MT_EngineRunner, Throughput) {
 
     for (std::size_t i = 0; i < N; ++i) {
         const Price p = static_cast<Price>(100 + (i % 20));
-        const Side  s = (i % 2 == 0) ? Side::Buy : Side::Sell;
-        while (!runner.submit(s, OrderType::Limit, p, 1))
+        const Side  s = (i % 2 == 0) ? Side::BID : Side::ASK;
+        while (!runner.submit(s, OrderType::LIMIT, p, 1))
             std::this_thread::yield();
     }
 
@@ -141,7 +141,7 @@ TEST(MT_EngineRunner, MeanLatencyUnder100us) {
     runner.start();
 
     for (std::size_t i = 0; i < N; ++i) {
-        while (!runner.submit(Side::Buy, OrderType::Limit,
+        while (!runner.submit(Side::BID, OrderType::LIMIT,
                               static_cast<Price>(100 + i % 5), 1))
             std::this_thread::yield();
     }
@@ -168,7 +168,7 @@ TEST(MT_EngineRunner, ShutdownDrainsQueue) {
     // Burst submit, then immediately stop
     std::size_t submitted = 0;
     for (std::size_t i = 0; i < N; ++i) {
-        if (runner.submit(Side::Buy, OrderType::Limit,
+        if (runner.submit(Side::BID, OrderType::LIMIT,
                           static_cast<Price>(100), 1))
             ++submitted;
     }
@@ -192,7 +192,7 @@ TEST(MT_EngineRunner, BackPressureDropCounting) {
     uint64_t dropped  = 0;
 
     for (int i = 0; i < 200; ++i) {
-        if (tiny_runner.submit(Side::Buy, OrderType::Limit, 100, 1))
+        if (tiny_runner.submit(Side::BID, OrderType::LIMIT, 100, 1))
             ++accepted;
         else
             ++dropped;

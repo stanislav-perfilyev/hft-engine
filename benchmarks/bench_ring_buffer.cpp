@@ -1,5 +1,9 @@
 // benchmarks/bench_ring_buffer.cpp
 // SPSC RingBuffer throughput vs mutex queue baseline.
+static constexpr int  kBufSize    = 1024;
+static constexpr int  kTestValue  =   42;
+static constexpr long kBenchItems = 100000;
+
 #include "ring_buffer.h"
 #include <benchmark/benchmark.h>
 #include <mutex>
@@ -11,7 +15,7 @@ static void BM_RingBuffer_SPSC(benchmark::State& state) {
     const long long items = state.range(0);
 
     for (auto _ : state) {
-        RingBuffer<int, 1024> rb;
+        RingBuffer<int, kBufSize> rb;
         int received = 0;
 
         // Producer inside loop — rule from feedback_error_patterns ## 8
@@ -31,7 +35,7 @@ static void BM_RingBuffer_SPSC(benchmark::State& state) {
 
     state.SetItemsProcessed(state.iterations() * items);
 }
-BENCHMARK(BM_RingBuffer_SPSC)->Arg(100000)->Unit(benchmark::kMillisecond);
+BENCHMARK(BM_RingBuffer_SPSC)->Arg(kBenchItems)->Unit(benchmark::kMillisecond);
 
 // ── Mutex queue baseline ──────────────────────────────────────────────────────
 template<typename T>
@@ -72,14 +76,14 @@ static void BM_MutexQueue_SPSC(benchmark::State& state) {
 
     state.SetItemsProcessed(state.iterations() * items);
 }
-BENCHMARK(BM_MutexQueue_SPSC)->Arg(100000)->Unit(benchmark::kMillisecond);
+BENCHMARK(BM_MutexQueue_SPSC)->Arg(kBenchItems)->Unit(benchmark::kMillisecond);
 
 // ── Single-thread push/pop latency ────────────────────────────────────────────
 static void BM_RingBuffer_SingleThread(benchmark::State& state) {
-    RingBuffer<int, 1024> rb;
+    RingBuffer<int, kBufSize> rb;
     int v = 0;
     for (auto _ : state) {
-        (void)rb.push(42);
+        (void)rb.push(kTestValue);
         (void)rb.pop(v);
         benchmark::DoNotOptimize(v);
     }

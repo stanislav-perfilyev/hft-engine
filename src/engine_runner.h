@@ -33,17 +33,18 @@
 #include <stop_token>
 #include <thread>
 
-// ─── OrderRequest: timestamped work item for the pipeline ────────────────────
+/// OrderRequest — timestamped work item for the pipeline
+/// Fields: side, type, price, qty, enqueue_ns (nanoseconds since epoch)
 struct OrderRequest {
-    Side      side{Side::Buy};
-    OrderType type{OrderType::Limit};
+    Side      side{Side::BID};
+    OrderType type{OrderType::LIMIT};
     Price     price{0};
     Qty       qty{0};
     /// Nanoseconds since epoch at enqueue — used for end-to-end latency
     int64_t   enqueue_ns{0};
 };
 
-// ─── EngineStats: all counters are atomic for wait-free reading ───────────────
+/// EngineStats — all runtime counters; all fields are atomic for wait-free reading
 struct EngineStats {
     std::atomic<uint64_t> orders_submitted{0};   ///< pushed into queue
     std::atomic<uint64_t> orders_processed{0};   ///< consumed by engine
@@ -70,7 +71,8 @@ struct EngineStats {
     }
 };
 
-// ─── EngineRunner ─────────────────────────────────────────────────────────────
+/// EngineRunner — 3-thread order processing pipeline (producer → engine → reporter)
+/// Template param QueueDepth must be a power of 2 (default: 65536).
 template<std::size_t QueueDepth = 65536>
 class EngineRunner {
     static_assert((QueueDepth & (QueueDepth - 1)) == 0,
@@ -132,7 +134,7 @@ private:
 
         // Wire matching engine trade output → reporter queue
         m_engine.on_trade([this](const Trade& t) {
-            m_trade_queue.push(t); // best-effort; drop if reporter is slow
+            [[maybe_unused]] const bool _pushed = m_trade_queue.push(t); // best-effort; drop if reporter is slow
         });
 
         while (!stoken.stop_requested() || !m_order_queue.empty()) {
