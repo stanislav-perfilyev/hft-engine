@@ -21,6 +21,7 @@
 // Allocates exactly N objects of type T from a single contiguous block.
 // acquire() / release() are O(1), branch-free after pool is initialized.
 template<typename T, std::size_t N>
+/// FixedPool — O(1) fixed-size slab allocator; N slots, no heap allocation.
 class FixedPool {
     static_assert(N > 0, "Pool size must be positive");
     static_assert(sizeof(T) >= sizeof(void*),
@@ -81,6 +82,7 @@ public:
     [[nodiscard]] bool        empty()      const noexcept { return m_free_count == N; }
 
 private:
+    /// Node — intrusive free-list link embedded in unused slots.
     struct Node { Node* next; };
 
     // Aligned storage — one slot per object
@@ -100,7 +102,7 @@ private:
 //
 // Alignment guarantee: the backing buffer is aligned to kMaxAlign bytes, so any
 // requested alignment <= kMaxAlign is satisfied correctly.  Alignments larger
-// than kMaxAlign are unsupported and will throw std::bad_alloc.
+/// PoolResource — pmr::memory_resource backed by FixedPool; large alignments throw bad_alloc.
 class PoolResource : public std::pmr::memory_resource {
     // Maximum alignment we guarantee (one cache line — covers all HFT types).
     static constexpr std::size_t kMaxAlign = 64;

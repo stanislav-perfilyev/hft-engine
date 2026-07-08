@@ -17,6 +17,7 @@
 
 template<typename T, std::size_t Capacity>
     requires (std::is_nothrow_move_constructible_v<T>)
+/// RingBuffer — lock-free SPSC ring buffer; capacity must be a power of 2.
 class RingBuffer {
     static_assert(Capacity >= 2,      "Capacity must be >= 2");
     static_assert((Capacity & (Capacity - 1)) == 0,

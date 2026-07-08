@@ -29,6 +29,7 @@
 
 // ─── MatchingEngine ───────────────────────────────────────────────────────────
 template<std::size_t MaxOrders = 65536>
+/// MatchingEngine — price-time priority matching engine; MaxOrders = pool capacity.
 class MatchingEngine {
 public:
     using TradeCallback = std::function<void(const Trade&)>;

@@ -23,7 +23,7 @@
 #include <vector>
 
 // ─── Level ────────────────────────────────────────────────────────────────────
-// All orders at one price, in FIFO order.
+/// Level — price bucket holding all orders at one price in FIFO order.
 struct Level {
     Price                            price{0};
     Qty                              total_qty{0};
@@ -33,7 +33,7 @@ struct Level {
         : price(p), total_qty(0), orders(mr) {}
 };
 
-// ─── OrderBook ────────────────────────────────────────────────────────────────
+/// OrderBook — two-sided limit order book (bids desc, asks asc, FIFO within level).
 class OrderBook {
 public:
     using BidMap = std::pmr::map<Price, Level, std::greater<Price>>;
@@ -114,7 +114,7 @@ public:
         return m_order_index.size();
     }
 
-    // L2 snapshot: top N levels each side
+    /// L2Snapshot — top-N price-level snapshot for each side of the book.
     struct L2Snapshot {
         std::vector<PriceLevel> bids;
         std::vector<PriceLevel> asks;

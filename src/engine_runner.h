@@ -71,9 +71,8 @@ struct EngineStats {
     }
 };
 
-/// EngineRunner — 3-thread order processing pipeline (producer → engine → reporter)
-/// Template param QueueDepth must be a power of 2 (default: 65536).
 template<std::size_t QueueDepth = 65536>
+/// EngineRunner — 3-thread order processing pipeline (producer → engine → reporter)
 class EngineRunner {
     static_assert((QueueDepth & (QueueDepth - 1)) == 0,
         "QueueDepth must be a power of 2");

@@ -29,6 +29,7 @@
 // ─── Calibrator ──────────────────────────────────────────────────────────────
 // Measures CPU cycles per nanosecond once at startup.
 // Not thread-safe by design — call from a single thread before using timers.
+/// RdtscCalibrator — calibrates RDTSC ticks-per-ns (single-thread, init before spawning).
 class RdtscCalibrator {
 public:
     // Calibrate over ~sample_ms milliseconds (100 ms default for ±0.1% accuracy).
@@ -69,6 +70,7 @@ public:
 //   ScopedTimer t;
 //   /* ... code ... */
 //   double ns = t.elapsed_ns();
+/// ScopedTimer — RAII timer; records RDTSC delta from construction to elapsed_ns().
 class ScopedTimer {
 public:
     ScopedTimer() noexcept : m_start(HFT_RDTSC()) {}
@@ -91,6 +93,7 @@ private:
 // ─── Latency statistics ───────────────────────────────────────────────────────
 // Accumulates min/max/mean without heap allocation.
 // Not thread-safe — use one instance per thread, merge externally if needed.
+/// LatencyStats — accumulates latency samples (min/max/mean); not thread-safe, merge externally.
 class LatencyStats {
 public:
     void record(double ns) noexcept {
