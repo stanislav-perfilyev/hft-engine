@@ -136,6 +136,9 @@ TEST(MT_EngineRunner, Throughput) {
 
 // ─── 4. End-to-end pipeline latency ─────────────────────────────────────────
 TEST(MT_EngineRunner, MeanLatencyUnder100us) {
+#ifndef NDEBUG
+    GTEST_SKIP() << "Latency benchmark skipped in Debug build (no -O2 optimisations)";
+#endif
     constexpr std::size_t  N         = 10'000;
     constexpr double       MAX_US    = 10000.0; // 10ms mean — robust for WSL2 + shared CI runners
 
