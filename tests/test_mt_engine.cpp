@@ -205,3 +205,4 @@ TEST(MT_EngineRunner, BackPressureDropCounting) {
     EXPECT_EQ(stat_drops, dropped);
     EXPECT_EQ(accepted + dropped, 200UL);
     EXPECT_GT(dropped, 0UL); // queue must have been full
+}

@@ -186,4 +186,14 @@ private:
 
     // ── Member data ───────────────────────────────────────────────────────
     RingBuffer<OrderRequest, QueueDepth> m_order_queue;
-    RingBuffer<Trade,        Queue
+    RingBuffer<Trade,        QueueDepth> m_trade_queue;
+
+    MatchingEngine<>  m_engine;
+    TradeCallback     m_trade_cb;
+    EngineStats       m_stats;
+
+    std::atomic<bool> m_engine_done{false};
+
+    std::jthread m_engine_thread;
+    std::jthread m_reporter_thread;
+};
