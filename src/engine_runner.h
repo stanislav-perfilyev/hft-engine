@@ -157,7 +157,11 @@ private:
             m_stats.total_latency_ns.fetch_add(lat, std::memory_order_relaxed);
             m_stats.orders_processed.fetch_add(1, std::memory_order_relaxed);
 
-            m_engine.release(order);
+            // Only release filled/rejected takers — active LIMIT orders are owned by the book
+            // until they fill (engine releases makers internally) or are cancelled.
+            if (!order->is_active()) {
+                m_engine.release(order);
+            }
         }
 
         // Signal reporter that engine is done
@@ -182,14 +186,4 @@ private:
 
     // ── Member data ───────────────────────────────────────────────────────
     RingBuffer<OrderRequest, QueueDepth> m_order_queue;
-    RingBuffer<Trade,        QueueDepth> m_trade_queue;
-
-    MatchingEngine<>  m_engine;
-    TradeCallback     m_trade_cb;
-    EngineStats       m_stats;
-
-    std::atomic<bool> m_engine_done{false};
-
-    std::jthread m_engine_thread;
-    std::jthread m_reporter_thread;
-};
+    RingBuffer<Trade,        Queue

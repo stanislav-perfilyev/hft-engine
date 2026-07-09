@@ -25,7 +25,7 @@
 using namespace std::chrono_literals;
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
-static int64_t now_ns() {
+[[maybe_unused]] static int64_t now_ns() {
     return std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::steady_clock::now().time_since_epoch()).count();
 }
@@ -204,5 +204,4 @@ TEST(MT_EngineRunner, BackPressureDropCounting) {
     const uint64_t stat_drops = tiny_runner.stats().queue_full_drops.load();
     EXPECT_EQ(stat_drops, dropped);
     EXPECT_EQ(accepted + dropped, 200UL);
-    EXPECT_GT(dropped, 0UL); // queue must have been full at some point
-}
+    EXPECT_GT(dropped, 0UL); // queue must have been full
