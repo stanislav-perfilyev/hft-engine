@@ -90,4 +90,3 @@ static void BM_RingBuffer_SingleThread(benchmark::State& state) {
 }
 BENCHMARK(BM_RingBuffer_SingleThread)->Unit(benchmark::kNanosecond);
 
-BENCHMARK_MAIN();

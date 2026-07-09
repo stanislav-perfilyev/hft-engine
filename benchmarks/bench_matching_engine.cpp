@@ -89,4 +89,3 @@ static void BM_MarketOrder(benchmark::State& state) {
 }
 BENCHMARK(BM_MarketOrder)->Range(1, kMarketRangeHi)->Unit(benchmark::kNanosecond);
 
-BENCHMARK_MAIN();
