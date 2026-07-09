@@ -18,7 +18,7 @@ TEST_F(METest, SubmitLimitRests) {
     EXPECT_EQ(o->status, OrderStatus::NEW);
     EXPECT_TRUE(trades.empty());
     EXPECT_EQ(me.book().best_bid()->price, 10000);
-    me.cancel(o->id);  // resting maker — clean up
+    (void)me.cancel(o->id);  // resting maker — clean up
 }
 
 TEST_F(METest, ExactMatchFillsBoth) {
@@ -45,7 +45,7 @@ TEST_F(METest, PartialFill) {
     EXPECT_EQ(me.book().best_bid()->total_qty, 40u);
     EXPECT_EQ(bid->filled_qty, 60u);
     EXPECT_EQ(bid->status, OrderStatus::PARTIAL);
-    me.cancel(bid->id);  // partial bid rests on book — clean up
+    (void)me.cancel(bid->id);  // partial bid rests on book — clean up
 }
 
 TEST_F(METest, PricePriority) {
@@ -58,8 +58,8 @@ TEST_F(METest, PricePriority) {
     EXPECT_EQ(trades[0].price, 10000);  // best ask filled first
     // bid filled exactly 50 (only best ask at 10000 matches qty=50) -- still on book or filled
     if (bid && bid->status == OrderStatus::FILLED) me.release(bid);
-    else if (bid) me.cancel(bid->id);
-    me.cancel(ask1->id);  // ask1 at 10010 was never filled — clean up
+    else if (bid) (void)me.cancel(bid->id);
+    (void)me.cancel(ask1->id);  // ask1 at 10010 was never filled — clean up
 }
 
 TEST_F(METest, TimePriority) {
@@ -80,7 +80,7 @@ TEST_F(METest, TimePriority) {
     // ask1 was auto-released by the engine — cannot dereference ask1 here
     EXPECT_EQ(ask2->status, OrderStatus::NEW);  // ask2 still resting
 
-    me.cancel(ask2_id);   // clean up ask2 from book
+    (void)me.cancel(ask2_id);   // clean up ask2 from book
     if (bid) me.release(bid);  // bid (taker) was filled — caller must release
 }
 
