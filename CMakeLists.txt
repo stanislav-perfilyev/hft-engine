@@ -3,7 +3,7 @@ project(hft_engine CXX)
 
 # ── ccache (faster rebuilds) ──────────────────────────────────────────────────
 find_program(CCACHE_PROGRAM ccache)
-if(CCACHE_PROGRAM)
+if(CCACHE_PROGRAM AND NOT MSVC)
     set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
     set(CMAKE_C_COMPILER_LAUNCHER   "${CCACHE_PROGRAM}")
 endif()

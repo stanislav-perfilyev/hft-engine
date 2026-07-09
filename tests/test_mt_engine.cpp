@@ -14,6 +14,7 @@
 #include <gtest/gtest.h>
 
 #include <atomic>
+#include <memory>
 #include <chrono>
 #include <cstdint>
 #include <numeric>
@@ -104,7 +105,8 @@ TEST(MT_EngineRunner, Throughput) {
     constexpr std::size_t N        = 50'000;
     constexpr double      MIN_MOPS = 0.05; // 50k ops/sec — conservative for CI
 
-    EngineRunner<65536> runner;
+    auto runner_up = std::make_unique<EngineRunner<65536>>();
+    auto& runner = *runner_up;
     runner.start();
 
     const auto t0 = std::chrono::steady_clock::now();
@@ -137,7 +139,8 @@ TEST(MT_EngineRunner, MeanLatencyUnder100us) {
     constexpr std::size_t  N         = 10'000;
     constexpr double       MAX_US    = 100.0; // 100µs mean — generous for CI
 
-    EngineRunner<65536> runner;
+    auto runner_up = std::make_unique<EngineRunner<65536>>();
+    auto& runner = *runner_up;
     runner.start();
 
     for (std::size_t i = 0; i < N; ++i) {
