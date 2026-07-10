@@ -172,7 +172,7 @@ TEST(MT_EngineRunner, MeanLatencyUnder100us) {
 TEST(MT_EngineRunner, ShutdownDrainsQueue) {
     constexpr std::size_t N = 5'000;
 
-    // Heap-allocate: MatchingEngine<65536> contains 4MB FixedPool inline;
+    // Heap-allocate: MatchingEngine contains 4MB FixedPool inline;
     // stack allocation causes SegFault on Windows (1MB default stack).
     auto runner_up = std::make_unique<EngineRunner<16384>>();
     auto& runner = *runner_up;
@@ -197,6 +197,25 @@ TEST(MT_EngineRunner, ShutdownDrainsQueue) {
 
 // ─── 6. Back-pressure: queue-full drops counted correctly ─────────────────────
 TEST(MT_EngineRunner, BackPressureDropCounting) {
-    // Use tiny queue so it fills up immediately
-    // Heap-allocate: MatchingEngine<65536> contains 4MB FixedPool inline;
-    /
+    // Use tiny queue so it fills up immediately.
+    // Heap-allocate: MatchingEngine contains 4MB FixedPool inline;
+    // stack allocation causes SegFault on Windows (1MB default stack).
+    auto tiny_runner_up = std::make_unique<EngineRunner<64>>();
+    auto& tiny_runner = *tiny_runner_up;
+    // Do NOT start — queue fills without consumer
+
+    uint64_t accepted = 0;
+    uint64_t dropped  = 0;
+
+    for (int i = 0; i < 200; ++i) {
+        if (tiny_runner.submit(Side::BID, OrderType::LIMIT, 100, 1))
+            ++accepted;
+        else
+            ++dropped;
+    }
+
+    const uint64_t stat_drops = tiny_runner.stats().queue_full_drops.load();
+    EXPECT_EQ(stat_drops, dropped);
+    EXPECT_EQ(accepted + dropped, 200UL);
+    EXPECT_GT(dropped, 0UL); // queue must have been full
+}
