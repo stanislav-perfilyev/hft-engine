@@ -48,6 +48,11 @@ add_executable(hft_tests
 )
 target_link_libraries(hft_tests PRIVATE hft_headers GTest::gtest_main
     $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:pthread>)
+# Suppress gcc-12 false positive: -Wrestrict fires inside gtest-type-util.h
+# string::replace (dead code path). Known upstream googletest issue with gcc-12.
+target_compile_options(hft_tests PRIVATE
+    $<$<CXX_COMPILER_ID:GNU>:-Wno-restrict>
+)
 include(GoogleTest)
 gtest_discover_tests(hft_tests)
 

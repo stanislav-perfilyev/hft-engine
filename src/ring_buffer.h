@@ -15,6 +15,12 @@
 #include <type_traits>
 #include <utility>
 
+// MSVC warns C4324 when alignas() causes struct padding — expected and intentional here.
+#ifdef _MSC_VER
+#  pragma warning(push)
+#  pragma warning(disable: 4324)
+#endif
+
 template<typename T, std::size_t Capacity>
     requires (std::is_nothrow_move_constructible_v<T>)
 /// RingBuffer — lock-free SPSC ring buffer; capacity must be a power of 2.
@@ -108,3 +114,7 @@ private:
     // Buffer: separate from head/tail to avoid false sharing
     alignas(64) T m_buffer[Capacity];
 };
+
+#ifdef _MSC_VER
+#  pragma warning(pop)
+#endif
