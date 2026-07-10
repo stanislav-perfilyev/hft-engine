@@ -15,6 +15,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # ── Compiler flags ────────────────────────────────────────────────────────────
 if(MSVC)
     add_compile_options(/W4 /WX /permissive- /arch:AVX2)
+    # std::getenv is standard C — suppress MSVC non-portable deprecation warning C4996
+    add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 else()
     add_compile_options(-Wall -Wextra -Werror -pedantic -march=native)
     # Enable RDTSC
