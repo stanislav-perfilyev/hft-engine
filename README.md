@@ -130,4 +130,30 @@ runner.start();
 // Submit orders from the producer thread (returns false on back-pressure)
 bool ok = runner.submit(Side::BID, OrderType::LIMIT, /*price=*/10050, /*qty=*/100);
 
-// Read lock-free stats from any thr
+// Read lock-free stats from any thread
+double lat_us = runner.stats().mean_latency_ns() / 1000.0;
+
+runner.stop(); // drains queue and joins threads
+```
+
+---
+
+## CI Matrix
+
+| Platform | Compiler |
+|----------|----------|
+| Ubuntu 22.04 | GCC 12 |
+| Ubuntu 22.04 | Clang 15 |
+| Windows 2022 | MSVC 19 (ilammy/msvc-dev-cmd) |
+
+---
+
+## Concepts Demonstrated
+
+- Lock-free SPSC queue with `memory_order_acquire/release`
+- `std::pmr` polymorphic allocators for zero-heap hot paths
+- RDTSC nanosecond timing and calibration
+- Price-time FIFO matching (L2/L3 order book)
+- `alignas(64)` cache-line pinning of hot structs
+- `FixedPool<T,N>` intrusive free-list allocator
+- `std::jthread` + `std::stop_token` in benchmarks
