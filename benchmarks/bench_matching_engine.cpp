@@ -12,17 +12,35 @@ static constexpr int kMarketRangeHi  =   256;
 
 #include "matching_engine.h"
 #include <benchmark/benchmark.h>
+#include <memory>
+
+// NOTE: MatchingEngine<kLargePoolDepth> embeds its FixedPool<Order,N> storage
+// inline (by design — zero heap allocation on the hot path once the engine
+// exists). At kLargePoolDepth=65536 and sizeof(Order)==64, that's a 4 MiB
+// object. Constructing it as a plain stack local inside a benchmark loop
+// blows the default ~1 MiB thread stack (STATUS_STACK_OVERFLOW). Heap-
+// allocate the engine itself once per iteration instead — this only moves
+// where the (still one-time, non-hot-path) engine construction lives; the
+// engine's own zero-alloc guarantee for submit()/cancel() is untouched.
 
 // ── BM_LimitOrderRest ─────────────────────────────────────────────────────────
 // Submit LIMIT orders that do NOT match (no opposite side) — measures pure
 // order insertion + index update latency.
 static void BM_LimitOrderRest(benchmark::State& state) {
+    const int n = static_cast<int>(state.range(0));
     for (auto _ : state) {
-        MatchingEngine<kLargePoolDepth> me;
-        const int n = static_cast<int>(state.range(0));
+        // Construction (4 MiB heap alloc + O(kLargePoolDepth) free-list init)
+        // is setup cost, not submit() cost — exclude it, same as the
+        // PauseTiming pattern used below in BM_MatchAndFill/BM_MarketOrder.
+        // Left inside the timed region, it dwarfs the per-order cost this
+        // benchmark is meant to isolate (dominates small-N rows especially).
+        state.PauseTiming();
+        auto me = std::make_unique<MatchingEngine<kLargePoolDepth>>();
+        state.ResumeTiming();
+
         for (int i = 0; i < n; ++i) {
             // Alternate prices so they don't cross
-            (void)me.submit(Side::BID, OrderType::LIMIT, kBasePrice - i, kDefaultQty);
+            (void)me->submit(Side::BID, OrderType::LIMIT, kBasePrice - i, kDefaultQty);
         }
         benchmark::DoNotOptimize(me);
         benchmark::ClobberMemory();
@@ -36,17 +54,17 @@ static void BM_MatchAndFill(benchmark::State& state) {
     const int n = static_cast<int>(state.range(0));
 
     for (auto _ : state) {
-        MatchingEngine<kLargePoolDepth> me;
-
-        // Setup phase (excluded from timing by benchmark framework)
+        // Engine construction + book pre-load are setup, not hot path — both
+        // excluded from timing.
         state.PauseTiming();
+        auto me = std::make_unique<MatchingEngine<kLargePoolDepth>>();
         for (int i = 0; i < n; ++i)
-            (void)me.submit(Side::ASK, OrderType::LIMIT, kBasePrice, 1);
+            (void)me->submit(Side::ASK, OrderType::LIMIT, kBasePrice, 1);
         state.ResumeTiming();
 
         // Hot path: match all N asks
         for (int i = 0; i < n; ++i)
-            (void)me.submit(Side::BID, OrderType::LIMIT, kBasePrice, 1);
+            (void)me->submit(Side::BID, OrderType::LIMIT, kBasePrice, 1);
 
         benchmark::DoNotOptimize(me);
         benchmark::ClobberMemory();
@@ -74,15 +92,14 @@ static void BM_MarketOrder(benchmark::State& state) {
     const int levels = static_cast<int>(state.range(0));
 
     for (auto _ : state) {
-        MatchingEngine<kLargePoolDepth> me;
-
         state.PauseTiming();
+        auto me = std::make_unique<MatchingEngine<kLargePoolDepth>>();
         for (int i = 0; i < levels; ++i)
-            (void)me.submit(Side::ASK, OrderType::LIMIT, kBasePrice + i, kQtyPerLevel);
+            (void)me->submit(Side::ASK, OrderType::LIMIT, kBasePrice + i, kQtyPerLevel);
         state.ResumeTiming();
 
         // Market buy sweeps all levels
-        (void)me.submit(Side::BID, OrderType::MARKET, 0, kQtyPerLevel * levels);
+        (void)me->submit(Side::BID, OrderType::MARKET, 0, kQtyPerLevel * levels);
         benchmark::DoNotOptimize(me);
         benchmark::ClobberMemory();
     }
